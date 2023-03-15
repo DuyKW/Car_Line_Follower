@@ -39,6 +39,7 @@ int count = 0;
 int slow = 0;
 int background = 0;
 int line = 1;
+double pre_error;
 //Khai bao de dung millis
 unsigned long time_count_1;
 unsigned long time_now_1 = 0;
@@ -123,11 +124,17 @@ void loop()
     } 
   else 
   {  
-    if (slow == 2 or (error >3000 and error <=5000) or (error <2000 and error >= 0)) {
-      base_speed = 100;
+    if (slow == 2) {
+      base_speed = 100; // sua Kp, Kd
+    }
+    else if ((error >3000 and error <=5000) or (error <2000 and error >= 0)){
+      base_speed = 130;
+      pre_error = error;
     }
     else {
-      base_speed = 175;
+      if (pre_error != error) base_speed = 130;
+      else 
+      base_speed = 175; // sua Kp, Kd
     }
     Serial.print(" "); Serial.print(base_speed);
     
