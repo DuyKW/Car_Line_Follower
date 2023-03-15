@@ -18,16 +18,18 @@ int IN3 = 7;
 int IN4 = 8;
                          
 //Thiết lập tốc độ nền
-double base_speed = 175; // 195-200-205-210-212.5-200-205.0-200-195
+double base_speed = 150; // 195-200-205-210-212.5-200-205.0-200-195
 double motor_speed = base_speed ;
 
+int left_motor_speed;
+int right_motor_speed;
 //Thiết lập tốc độ rẽ, lùi
 int banh_chinh = 190;//-135-100-110.0-90-100
 int banh_phu = 100; //Đảo ngược-75-95-100.0-75-80-100
 int toc_do_lui = 135;
 
 //Thiết lập hệ số PID
-double Kp = 0.044;
+double Kp = 0.06;
 double Ki = 0;
 double Kd = 0;
 
@@ -71,8 +73,9 @@ void setup()
 
 void loop()
 {
+  
   read_sensor();
-  Serial.println(error);
+  // Serial.println(error);
 
   if ((error >=2000) && (error <= 3000)) memory = error; //tạo memory
   if (error == 15) 
@@ -88,10 +91,12 @@ void loop()
     } 
     while (error == 15);
   }
+
   else if (error == 10) {
-      delay(10);
+      delay(12);
       read_sensor();
-      if (error == 20) count = 1;
+      if (error == 20) {count = 1; slow = 2;}
+      Serial.print(slow); 
       Serial.print(" "); Serial.print (count);
     do {
       if (count == 1) {
@@ -104,30 +109,33 @@ void loop()
     while (error =! 2500); // 
   }
   else if (error == - 5) {
-      delay(10);
+      delay(12);
       read_sensor();
-      if (error == 20) count = 1; slow = 2;
-      Serial.print(" "); Serial.print (count);
+      if (error == 20) {count = 1; slow = 2;}
     do {
-      if (count == 1) {
+    if (count == 1) {
         count = 0;
         break;}
     ReTrai();
     read_sensor();
-    slow = 0;
     }
     while (error != 2500);
     } 
   else 
   {  
-    if (slow == 2) {
-      base_speed = 145;
+    if (slow == 2 or (error >3000 and error <=5000) or (error <2000 and error >= 0)) {
+      base_speed = 100;
     }
     else {
       base_speed = 175;
     }
+    Serial.print(" "); Serial.print(base_speed);
+    
     myPID.Compute();   
-    motor_control();               
+    motor_control();   
+    
+    Serial.print(" "); Serial.print(left_motor_speed);        
+    Serial.print(" "); Serial.print(right_motor_speed);  
 }
 }
 
@@ -168,8 +176,8 @@ void read_sensor()
 
 void motor_control()
 { 
-  int left_motor_speed = motor_speed  + PID_value;  //Nếu chạy ngược thì đổi + thành - 
-  int right_motor_speed = motor_speed - PID_value;  
+  left_motor_speed = motor_speed  + PID_value; // Khai bao bien toan cuc
+  right_motor_speed = motor_speed - PID_value - 0.09*motor_speed;  // Khai bao bien toan cuc
 
   // Giới hạn giá trị xuất xung từ 0 - 255
   left_motor_speed = constrain(left_motor_speed, 0, 255);   
