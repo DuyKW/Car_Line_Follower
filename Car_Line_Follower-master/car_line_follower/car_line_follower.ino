@@ -18,15 +18,12 @@ int IN3 = 7;
 int IN4 = 8;
                          
 //Thiết lập tốc độ nền
-double base_speed = 150; // 195-200-205-210-212.5-200-205.0-200-195
-double motor_speed = base_speed ;
 
-int left_motor_speed;
-int right_motor_speed;
+double motor_speed = 205;
 //Thiết lập tốc độ rẽ, lùi
-int banh_chinh = 190;//-135-100-110.0-90-100
-int banh_phu = 100; //Đảo ngược-75-95-100.0-75-80-100
-int toc_do_lui = 135;
+int banh_chinh = 145;
+int banh_phu = 110; 
+int toc_do_lui = 135; // Đã oke
 
 //Thiết lập hệ số PID
 double Kp = 0.06;
@@ -35,11 +32,10 @@ double Kd = 0;
 
 //Khai báo các biến nhớ cần dùng
 int memory = 0;
-int count = 0;
-int slow = 0;
 int background = 0;
 int line = 1;
-double pre_error;
+int pre_error[200];
+
 //Khai bao de dung millis
 unsigned long time_count_1;
 unsigned long time_now_1 = 0;
@@ -78,7 +74,7 @@ void loop()
   read_sensor();
   // Serial.println(error);
 
-  if ((error >=2000) && (error <= 3000)) memory = error; //tạo memory
+ if ((error >=2000) && (error <= 3000)) memory = error; //tạo memory
   if (error == 15) 
   {
     do 
@@ -92,58 +88,78 @@ void loop()
     } 
     while (error == 15);
   }
-
-  else if (error == 10) {
-      delay(12);
-      read_sensor();
-      if (error == 20) {count = 1; slow = 2;}
-      Serial.print(slow); 
-      Serial.print(" "); Serial.print (count);
-    do {
-      if (count == 1) {
-        count = 0;
-        break;}
-      RePhai();
-      read_sensor();
-      slow = 0;
-    }
-    while (error =! 2500); // 
-  }
-  else if (error == - 5) {
-      delay(12);
-      read_sensor();
-      if (error == 20) {count = 1; slow = 2;}
-    do {
-    if (count == 1) {
-        count = 0;
-        break;}
-    ReTrai();
+    
+  else if(error == 20){       //xe chỉ rẽ khi đi qua line chắn 
+    do
+    {
+    motor_speed = 135;
+    Kp = 0.03;    
     read_sensor();
+    Serial.println(error);    
+    myPID.Compute();  
+    motor_control();
+    if (error == -5 or error == 10) break; // Hoặc dời lên trên, tức là vòng tiếp theo để thời gian an toàn
     }
-    while (error != 2500);
-    } 
-  else 
-  {  
-    if (slow == 2) {
-      base_speed = 100; // sua Kp, Kd
+    while(1);
+    Serial.println(error);
+  if (error == 10)          // Rẽ Phải 90* 
+  {    
+    do                         
+    {   
+      RePhai();
+      read_sensor();  
     }
-    else if ((error >3000 and error <=5000) or (error <2000 and error >= 0)){
-      base_speed = 130;
-      pre_error = error;
+  while (error != 2500);       
+  }
+  else if (error == -5)                 // Rẽ Trái 90*    
+    {
+      do                           
+    {
+      ReTrai();
+      read_sensor();
+    }
+      while (error != 2500);
+    }
+motor_speed = 205;
+  }
+else 
+{  
+    
+    if (check_error(error)) {
+      do{
+
+        motor_speed = 155; 
+        Kp = 0.044;   
+        for (int i= 0; i < 25; i++) {
+          read_sensor();
+          pre_error[i] = error;
+        }
+        myPID.Compute();    
+        motor_control();
+      }
+      while (!check_pre_error(pre_error,25)); // can xac dinh error khi queo
     }
     else {
-      if (pre_error != error) base_speed = 130;
-      else 
-      base_speed = 175; // sua Kp, Kd
-    }
-    Serial.print(" "); Serial.print(base_speed);
-    
+    motor_speed = 185;
+    Kp = 0.06; // Vi error chi nam trong khoang (2000 - 3000);
     myPID.Compute();   
     motor_control();   
-    
-    Serial.print(" "); Serial.print(left_motor_speed);        
-    Serial.print(" "); Serial.print(right_motor_speed);  
+    }
+    // Serial.print(" "); Serial.print(left_motor_speed);        
+    // Serial.print(" "); Serial.println(right_motor_speed);  
 }
+
+}
+
+int check_error (int er) {
+  if (er >= 2000 and er <= 3000) return 1;
+  return 0;
+}
+int check_pre_error (int arr[], int n) {
+  for (int i = 0; i < n; i++) {
+    if (check_error (arr[i] != 1)) return 0;
+  }
+  return 1;
 }
 
 
@@ -183,8 +199,8 @@ void read_sensor()
 
 void motor_control()
 { 
-  left_motor_speed = motor_speed  + PID_value; // Khai bao bien toan cuc
-  right_motor_speed = motor_speed - PID_value - 0.09*motor_speed;  // Khai bao bien toan cuc
+  int left_motor_speed = motor_speed  + PID_value; // Khai bao bien toan cuc
+  int right_motor_speed = motor_speed - PID_value - 0.09*(motor_speed + PID_value) ;  // Khai bao bien toan cuc
 
   // Giới hạn giá trị xuất xung từ 0 - 255
   left_motor_speed = constrain(left_motor_speed, 0, 255);   
@@ -219,7 +235,7 @@ void RePhai() {
   /*Banh phải nhanh hơn bánh trái */
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
-  analogWrite(ENA, 0); // stop
+  analogWrite(ENA, 112); // stop
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
   analogWrite(ENB, banh_chinh);
@@ -231,6 +247,6 @@ void ReTrai() {
   analogWrite(ENA, banh_chinh);
   digitalWrite(IN3, LOW); 
   digitalWrite(IN4, HIGH); 
-  analogWrite(ENB, 0);
+  analogWrite(ENB, 112);
 }
 
